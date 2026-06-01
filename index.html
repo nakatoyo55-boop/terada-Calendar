@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>営業スケジュール カレンダー</title>
+<style>
+  /* ===== リセット・基本 ===== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f5f3;
+    --surface: #ffffff;
+    --surface2: #f0ede8;
+    --border: rgba(0,0,0,0.12);
+    --border2: rgba(0,0,0,0.22);
+    --text: #1a1a1a;
+    --text2: #666660;
+    --text3: #999990;
+    --blue50: #E6F1FB; --blue400: #378ADD; --blue800: #0C447C;
+    --green50: #EAF3DE; --green400: #639922; --green800: #27500A;
+    --amber50: #FAEEDA; --amber400: #BA7517; --amber800: #633806;
+    --radius-sm: 6px; --radius-md: 8px; --radius-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1a; --surface: #262624; --surface2: #2e2e2c;
+      --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.2);
+      --text: #f0f0ec; --text2: #a0a09a; --text3: #666660;
+      --blue50: #0c2a40; --blue400: #378ADD; --blue800: #85B7EB;
+      --green50: #162308; --green400: #639922; --green800: #97C459;
+      --amber50: #2a1a04; --amber400: #BA7517; --amber800: #EF9F27;
+    }
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ===== レイアウト ===== */
+  .app { max-width: 780px; margin: 0 auto; padding: 16px 12px 40px; }
+  .app-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .app-header h1 { font-size: 18px; font-weight: 600; color: var(--text); }
+  .header-icon { font-size: 22px; }
+
+  /* ===== フィルターバー ===== */
+  .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 10px 12px; }
+  .filter-label { font-size: 12px; color: var(--text3); white-space: nowrap; }
+  .filter-bar select { font-size: 12px; padding: 5px 8px; border-radius: var(--radius-md); border: 0.5px solid var(--border2); background: var(--surface2); color: var(--text); flex: 1; min-width: 110px; max-width: 160px; }
+  .reset-btn { font-size: 12px; padding: 5px 12px; border-radius: var(--radius-md); border: 0.5px solid var(--border2); background: var(--surface2); color: var(--text2); cursor: pointer; white-space: nowrap; }
+  .reset-btn:hover { background: var(--border); }
+
+  /* ===== サマリーカード ===== */
+  .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .s-card { background: var(--surface); border-radius: var(--radius-md); padding: 10px 12px; border: 0.5px solid var(--border); }
+  .s-card .s-num { font-size: 22px; font-weight: 600; color: var(--text); display: block; line-height: 1.2; }
+  .s-card .s-label { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+  /* ===== ナビ ===== */
+  .cal-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .nav-btn { background: var(--surface); border: 0.5px solid var(--border2); border-radius: var(--radius-md); padding: 7px 16px; cursor: pointer; font-size: 16px; color: var(--text); }
+  .nav-btn:hover { background: var(--surface2); }
+  .month-title { font-size: 17px; font-weight: 600; flex: 1; text-align: center; color: var(--text); }
+
+  /* ===== 凡例 ===== */
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+  .leg-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text2); }
+  .leg-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ===== カレンダーグリッド ===== */
+  .dow-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 2px; }
+  .dow-row span { text-align: center; font-size: 11px; color: var(--text3); padding: 3px 0; font-weight: 500; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .cell { min-height: 72px; padding: 4px; background: var(--surface); border-radius: var(--radius-sm); border: 0.5px solid var(--border); }
+  .cell.other { opacity: 0.3; }
+  .cell.today { outline: 2px solid var(--blue400); outline-offset: -1px; }
+  .dnum { font-size: 11px; font-weight: 500; color: var(--text2); margin-bottom: 2px; }
+  .ev { font-size: 10px; border-radius: 3px; padding: 1px 4px; margin-bottom: 2px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.6; }
+  .ev:hover { opacity: 0.8; }
+  .ev.survey      { background: var(--blue50);  color: var(--blue800); }
+  .ev.construction{ background: var(--green50); color: var(--green800); }
+  .ev.juchu       { background: var(--amber50); color: var(--amber800); }
+  .more-ev { font-size: 9px; color: var(--text3); padding: 1px 2px; }
+
+  /* ===== ローディング / エラー ===== */
+  .loading { text-align: center; padding: 40px 16px; color: var(--text2); font-size: 14px; }
+  .error-box { background: #FCEBEB; border: 0.5px solid #F09595; border-radius: var(--radius-md); padding: 12px 16px; font-size: 13px; color: #501313; margin-bottom: 12px; }
+
+  /* ===== モーダル ===== */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+  .modal { background: var(--surface); border-radius: var(--radius-lg); padding: 16px; max-width: 340px; width: 100%; border: 0.5px solid var(--border2); max-height: 80vh; overflow-y: auto; }
+  .modal-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .mrow { padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+  .mrow:last-of-type { border-bottom: none; }
+  .mrow-name { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
+  .mrow-sub { font-size: 12px; color: var(--text2); line-height: 1.6; }
+  .badge { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 10px; margin-right: 4px; }
+  .badge.juchu { background: var(--amber50); color: var(--amber800); }
+  .badge.kanko { background: var(--green50); color: var(--green800); }
+  .badge.sv { background: var(--blue50); color: var(--blue800); }
+  .badge.ct { background: var(--green50); color: var(--green800); }
+  .close-btn { margin-top: 12px; width: 100%; padding: 9px; background: var(--surface2); border: 0.5px solid var(--border2); border-radius: var(--radius-md); cursor: pointer; font-size: 13px; color: var(--text); }
+  .close-btn:hover { background: var(--border); }
+
+  /* ===== レスポンシブ ===== */
+  @media (max-width: 480px) {
+    .cell { min-height: 52px; padding: 2px; }
+    .ev { font-size: 9px; padding: 1px 3px; }
+    .summary { gap: 6px; }
+    .s-card .s-num { font-size: 18px; }
+    .filter-bar select { min-width: 90px; max-width: 130px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="app-header">
+    <span class="header-icon">📋</span>
+    <h1>営業スケジュール カレンダー</h1>
+  </div>
+
+  <div id="error-area"></div>
+  <div id="loading" class="loading">データを読み込んでいます...</div>
+  <div id="main" style="display:none">
+    <div class="filter-bar">
+      <span class="filter-label">絞り込み</span>
+      <select id="f-hc"><option value="">ホームセンター（全て）</option></select>
+      <select id="f-type"><option value="">種別（全て）</option></select>
+      <select id="f-status"><option value="">状況（全て）</option><option value="受注">受注</option><option value="完工">完工</option></select>
+      <button class="reset-btn" id="reset-btn">✕ リセット</button>
+    </div>
+    <div class="summary">
+      <div class="s-card"><span class="s-num" id="cnt-all">0</span><div class="s-label">表示中（件）</div></div>
+      <div class="s-card"><span class="s-num" id="cnt-sv">0</span><div class="s-label">現調</div></div>
+      <div class="s-card"><span class="s-num" id="cnt-ct">0</span><div class="s-label">工事</div></div>
+    </div>
+    <div class="cal-nav">
+      <button class="nav-btn" id="prev">‹</button>
+      <span class="month-title" id="month-title"></span>
+      <button class="nav-btn" id="next">›</button>
+    </div>
+    <div class="legend">
+      <div class="leg-item"><div class="leg-dot" style="background:var(--blue400)"></div>現調日</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--green400)"></div>工事日</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--amber400)"></div>受注のみ（工事日未定）</div>
+    </div>
+    <div class="dow-row"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span></div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+</div>
+<div id="modal-area"></div>
+
+<script>
+// ============================================================
+//  ★ GAS WebアプリのURLをここに貼り付けてください
+// ============================================================
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzqCTpX5tDBEMGEIJo8YPrS1gSUOyXHnaZk7-ooytS-s18Lr5bdXlx0Nw44E38vQ64t/exec';
+// ============================================================
+
+let ALL_DATA = [];
+let cy, cm;
+
+// ---- 初期化 ----
+(async () => {
+  const now = new Date();
+  cy = now.getFullYear();
+  cm = now.getMonth() + 1;
+
+  try {
+    const res = await fetch(GAS_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if (json.status !== 'ok') throw new Error(json.message || 'APIエラー');
+    ALL_DATA = json.data;
+    initFilters();
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('main').style.display = 'block';
+    render();
+  } catch (e) {
+    document.getElementById('loading').style.display = 'none';
+    showError(`データの取得に失敗しました: ${e.message}<br>GAS_URLを確認してください。`);
+  }
+})();
+
+function showError(msg) {
+  document.getElementById('error-area').innerHTML = `<div class="error-box">${msg}</div>`;
+}
+
+// ---- フィルター初期化 ----
+function initFilters() {
+  const hcSel = document.getElementById('f-hc');
+  const tpSel = document.getElementById('f-type');
+  [...new Set(ALL_DATA.map(r => r.hc).filter(Boolean))].sort().forEach(v => {
+    const o = document.createElement('option'); o.value = v; o.textContent = v; hcSel.appendChild(o);
+  });
+  [...new Set(ALL_DATA.map(r => r.type).filter(Boolean))].sort().forEach(v => {
+    const o = document.createElement('option'); o.value = v; o.textContent = v; tpSel.appendChild(o);
+  });
+}
+
+// ---- データ取得（フィルター適用後） ----
+function getFiltered() {
+  const hc = document.getElementById('f-hc').value;
+  const tp = document.getElementById('f-type').value;
+  const st = document.getElementById('f-status').value;
+  return ALL_DATA.filter(r =>
+    (!hc || r.hc === hc) &&
+    (!tp || r.type === tp) &&
+    (!st || r.status === st)
+  );
+}
+
+// ---- 日付→"YYYY-M-D"キー変換 ----
+function pDate(s) {
+  if (!s) return null;
+  const p = s.split('-');
+  return new Date(+p[0], +p[1] - 1, +p[2]);
+}
+function dKey(d) { return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; }
+
+// ---- イベントマップ構築 ----
+function buildMap(filtered) {
+  const map = {};
+  filtered.forEach(r => {
+    if (r.survey) {
+      const d = pDate(r.survey); if (!d) return;
+      const k = dKey(d); if (!map[k]) map[k] = [];
+      map[k].push({ ...r, evType: 'survey' });
+    }
+    if (r.construction) {
+      const d = pDate(r.construction); if (!d) return;
+      const k = dKey(d); if (!map[k]) map[k] = [];
+      map[k].push({ ...r, evType: 'construction' });
+    }
+  });
+  return map;
+}
+
+// ---- サマリー更新 ----
+function updateSummary(filtered, map) {
+  const thisMonthKeys = Object.keys(map).filter(k => {
+    const p = k.split('-'); return +p[0] === cy && +p[1] === cm;
+  });
+  let sv = 0, ct = 0;
+  thisMonthKeys.forEach(k => map[k].forEach(e => { e.evType === 'survey' ? sv++ : ct++; }));
+  const cnt = filtered.filter(r => {
+    const sd = pDate(r.survey), cd = pDate(r.construction);
+    return (sd && sd.getFullYear() === cy && sd.getMonth() + 1 === cm) ||
+           (cd && cd.getFullYear() === cy && cd.getMonth() + 1 === cm);
+  }).length;
+  document.getElementById('cnt-all').textContent = cnt;
+  document.getElementById('cnt-sv').textContent = sv;
+  document.getElementById('cnt-ct').textContent = ct;
+}
+
+// ---- カレンダー描画 ----
+function render() {
+  const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  document.getElementById('month-title').textContent = `${cy}年 ${months[cm - 1]}`;
+  const filtered = getFiltered();
+  const map = buildMap(filtered);
+  updateSummary(filtered, map);
+
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+  const first = new Date(cy, cm - 1, 1);
+  const last = new Date(cy, cm, 0);
+  const startDay = first.getDay();
+  const today = new Date();
+
+  for (let i = 0; i < startDay; i++) {
+    const d = new Date(cy, cm - 1, -startDay + 1 + i);
+    const cell = document.createElement('div');
+    cell.className = 'cell other';
+    cell.innerHTML = `<div class="dnum">${d.getDate()}</div>`;
+    grid.appendChild(cell);
+  }
+
+  for (let d = 1; d <= last.getDate(); d++) {
+    const isToday = today.getFullYear() === cy && today.getMonth() + 1 === cm && today.getDate() === d;
+    const cell = document.createElement('div');
+    cell.className = 'cell' + (isToday ? ' today' : '');
+    const k = `${cy}-${cm}-${d}`;
+    const evs = map[k] || [];
+    let html = `<div class="dnum">${d}</div>`;
+    evs.slice(0, 3).forEach(ev => {
+      let cls = ev.evType === 'survey' ? 'survey' : 'construction';
+      if (ev.status === '受注' && ev.evType === 'survey') cls = 'juchu';
+      const label = ev.evType === 'survey' ? '現' : '工';
+      const lastName = ev.name ? ev.name.split(/[ 　]/)[0] : '';
+      html += `<div class="ev ${cls}" data-k="${k}" data-i="${evs.indexOf(ev)}">${label} ${lastName}</div>`;
+    });
+    if (evs.length > 3) html += `<div class="more-ev">+${evs.length - 3}件</div>`;
+    cell.innerHTML = html;
+    cell.querySelectorAll('.ev').forEach(el => {
+      el.addEventListener('click', e => {
+        e.stopPropagation();
+        showModal(map[el.dataset.k], +el.dataset.i, el.dataset.k);
+      });
+    });
+    grid.appendChild(cell);
+  }
+
+  const rem = (7 - ((startDay + last.getDate()) % 7)) % 7;
+  for (let i = 1; i <= rem; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell other';
+    cell.innerHTML = `<div class="dnum">${i}</div>`;
+    grid.appendChild(cell);
+  }
+}
+
+// ---- モーダル表示 ----
+function showModal(evs, idx, k) {
+  const parts = k.split('-');
+  const ds = `${parts[0]}年${parts[1]}月${parts[2]}日`;
+  const ma = document.getElementById('modal-area');
+  const rows = evs.map(ev => `
+    <div class="mrow">
+      <div class="mrow-name">
+        ${ev.name}
+        <span class="badge ${ev.status === '受注' ? 'juchu' : 'kanko'}">${ev.status}</span>
+        <span class="badge ${ev.evType === 'survey' ? 'sv' : 'ct'}">${ev.evType === 'survey' ? '現調' : '工事'}</span>
+      </div>
+      <div class="mrow-sub">
+        ${ev.addr || ''}${ev.addr && ev.type ? ' ／ ' : ''}${ev.type || ''}<br>
+        ${ev.hc ? 'HC: ' + ev.hc + '　' : ''}受注金額: ¥${(ev.amount || 0).toLocaleString()}
+      </div>
+    </div>`).join('');
+  ma.innerHTML = `
+    <div class="modal-bg" id="modal-bg">
+      <div class="modal">
+        <div class="modal-title">📅 ${ds}（${evs.length}件）</div>
+        ${rows}
+        <button class="close-btn" id="mc">閉じる</button>
+      </div>
+    </div>`;
+  document.getElementById('mc').onclick = () => { ma.innerHTML = ''; };
+  document.getElementById('modal-bg').addEventListener('click', function(e) { if (e.target === this) ma.innerHTML = ''; });
+}
+
+// ---- ナビ・フィルターイベント ----
+document.getElementById('prev').onclick = () => { cm--; if (cm < 1) { cm = 12; cy--; } render(); };
+document.getElementById('next').onclick = () => { cm++; if (cm > 12) { cm = 1; cy++; } render(); };
+document.getElementById('reset-btn').onclick = () => {
+  ['f-hc','f-type','f-status'].forEach(id => { document.getElementById(id).value = ''; });
+  render();
+};
+['f-hc','f-type','f-status'].forEach(id => document.getElementById(id).addEventListener('change', render));
+</script>
+</body>
+</html>
