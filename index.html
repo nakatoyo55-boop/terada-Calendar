@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>営業スケジュール カレンダー</title>
 <style>
+  /* ===== ログイン画面 ===== */
+  .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg); padding: 16px; }
+  .login-card { background: var(--surface); border: 0.5px solid var(--border2); border-radius: var(--radius-lg); padding: 32px 28px; max-width: 340px; width: 100%; text-align: center; }
+  .login-icon { font-size: 36px; margin-bottom: 12px; }
+  .login-card h2 { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .login-card p { font-size: 13px; color: var(--text2); margin-bottom: 24px; }
+  .login-input { width: 100%; padding: 11px 14px; font-size: 15px; border: 0.5px solid var(--border2); border-radius: var(--radius-md); background: var(--surface2); color: var(--text); margin-bottom: 12px; letter-spacing: 0.1em; }
+  .login-input:focus { outline: 2px solid var(--blue400); outline-offset: -1px; }
+  .login-btn { width: 100%; padding: 11px; background: var(--blue400); color: #fff; border: none; border-radius: var(--radius-md); font-size: 14px; font-weight: 500; cursor: pointer; }
+  .login-btn:hover { opacity: 0.88; }
+  .login-error { font-size: 13px; color: #c0392b; margin-top: 10px; min-height: 18px; }
+</style>
   /* ===== リセット・基本 ===== */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -109,6 +121,21 @@
 </style>
 </head>
 <body>
+
+<!-- ===== ログイン画面 ===== -->
+<div id="login-screen" class="login-wrap">
+  <div class="login-card">
+    <div class="login-icon">🔒</div>
+    <h2>営業スケジュール カレンダー</h2>
+    <p>パスワードを入力してください</p>
+    <input class="login-input" type="password" id="pw-input" placeholder="パスワード" autocomplete="current-password">
+    <button class="login-btn" id="login-btn">ログイン</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ===== メイン画面（認証後に表示） ===== -->
+<div id="app-screen" style="display:none">
 <div class="app">
   <div class="app-header">
     <span class="header-icon">📋</span>
@@ -143,14 +170,57 @@
     <div class="dow-row"><span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span></div>
     <div class="cal-grid" id="cal-grid"></div>
   </div>
-</div>
+</div><!-- /.app -->
+</div><!-- /#app-screen -->
 <div id="modal-area"></div>
 
 <script>
 // ============================================================
+//  ★ パスワードをここに設定してください（複数設定可）
+// ============================================================
+const PASSWORDS = ['Inos1936'];  // ← 変更してください。複数の場合: ['pass1', 'pass2']
+// ============================================================
+
+// ---- パスワード認証 ----
+(function initAuth() {
+  const SESSION_KEY = 'cal_auth_ok';
+
+  function showApp() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'block';
+  }
+
+  // すでに認証済みなら即表示
+  if (sessionStorage.getItem(SESSION_KEY) === '1') {
+    showApp();
+    return;
+  }
+
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app-screen').style.display = 'none';
+
+  function tryLogin() {
+    const input = document.getElementById('pw-input').value;
+    if (PASSWORDS.includes(input)) {
+      sessionStorage.setItem(SESSION_KEY, '1');
+      showApp();
+    } else {
+      document.getElementById('login-error').textContent = 'パスワードが違います';
+      document.getElementById('pw-input').value = '';
+      document.getElementById('pw-input').focus();
+    }
+  }
+
+  document.getElementById('login-btn').addEventListener('click', tryLogin);
+  document.getElementById('pw-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') tryLogin();
+  });
+})();
+
+// ============================================================
 //  ★ GAS WebアプリのURLをここに貼り付けてください
 // ============================================================
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzqCTpX5tDBEMGEIJo8YPrS1gSUOyXHnaZk7-ooytS-s18Lr5bdXlx0Nw44E38vQ64t/exec';
+const GAS_URL = 'https://script.google.com/macros/s/★ここにGASのデプロイURL★/exec';
 // ============================================================
 
 let ALL_DATA = [];
